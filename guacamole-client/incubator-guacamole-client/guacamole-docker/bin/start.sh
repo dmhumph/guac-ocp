@@ -174,7 +174,7 @@ END
 
 curl -L "http://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-5.1.35.tar.gz" | \ 
 tar -xz                        \   
-    -C "/opt/guacamole/mysql/"   \   
+    -C "$GUACAMOLE_EXT"   \   
     --wildcards                \   
     --no-anchored              \   
     --no-wildcards-match-slash \
@@ -182,8 +182,8 @@ tar -xz                        \
     "mysql-connector-*.jar"
 
     # Add required .jar files to GUACAMOLE_LIB and GUACAMOLE_EXT
-    ln -s /opt/guacamole/mysql/mysql-connector-*.jar "$GUACAMOLE_LIB"
-    ln -s /opt/guacamole/mysql/guacamole-auth-*.jar "$GUACAMOLE_EXT"
+#ln -s /opt/guacamole/mysql/mysql-connector-*.jar "$GUACAMOLE_LIB"
+#ln -s /opt/guacamole/mysql/guacamole-auth-*.jar "$GUACAMOLE_EXT"
 
 }
 
