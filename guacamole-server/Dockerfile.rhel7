@@ -34,6 +34,7 @@ RUN yum clean all -y && \
         openssl-devel          \
         libvncserver-devel     \
         autoconf               \
+        automake               \
         freerdp-devel          \
         ffmpeg-devel           \
         uuid-devel          && \
