@@ -33,6 +33,7 @@ RUN yum clean all -y && \
         libwebp-devel          \
         openssl-devel          \
         libvncserver-devel     \
+        autoconf               \
         freerdp-devel          \
         ffmpeg-devel           \
         uuid-devel          && \
