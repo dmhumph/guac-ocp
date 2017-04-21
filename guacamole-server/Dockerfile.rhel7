@@ -23,19 +23,29 @@ RUN yum clean all -y && \
                    --enablerepo='rhel-7-server-optional-rpms' \
                    --enablerepo='rhel-7-server-extras-rpms' \
         cairo-devel            \
+        dejavu-sans-mono-fonts \
+        freerdp-devel          \
+        freerdp-plugins        \
+        gcc                    \
+        ghostscript            \
         libjpeg-turbo-devel    \
+        libssh2-devel          \
         libjpeg-devel          \
         libpng-devel           \
-        gcc                    \
+        libtelnet-devel        \
+        libtool                \
+        libvorbis-devel        \
+        libvncserver-devel     \
+        libwebp-devel          \
         make                   \
         openssl		       \
+        pango-devel            \
+        pulseaudio-libs-devel  \
         tar                    \
         libwebp-devel          \
         openssl-devel          \
-        libvncserver-devel     \
         autoconf               \
         automake               \
-        freerdp-devel          \
         ffmpeg-devel           \
         uuid-devel          && \
     yum clean all -y && \
