@@ -13,11 +13,12 @@ spec:
       uri: "https://github.com/bagnaram/incubator-guacamole-client.git"
     type: Git
   strategy:
-    type: Source
+    type: "Source"
     sourceStrategy:
+      from: "ImageStreamTag"
+        kind: "imageStreamTag"
+        name: "jboss-webserver30-tomcat8-openshift:latest"
       env: 
         - name: "ARTIFACT_DIR"
           value: "guacamole/target,extensions/guacamole-auth-jdbc/modules/guacamole-auth-jdbc-mysql/target"
-      from: "ImageStreamTag"
-      name: "jboss-webserver30-tomcat8-openshift:latest"
 
