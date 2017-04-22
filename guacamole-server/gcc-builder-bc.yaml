@@ -1,0 +1,21 @@
+apiVersion: "v1"
+kind: "BuildConfig"
+metadata:
+  name: "gcc-builder"
+spec:
+  output:
+    to:
+      kind: "ImageStreamTag"
+      name: "gcc-builder:latest"
+  source:
+    git:
+      uri: "https://github.com/bagnaram/guac-ocp" 
+      ref: "master"
+    contextDir: "guacamole-server"
+    type: "Git"
+  strategy: 
+    type: "Docker"
+    dockerStrategy:
+      dockerfilePath: Dockerfile.rhel7
+
+
