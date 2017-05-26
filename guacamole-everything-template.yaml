@@ -14,20 +14,19 @@ objects:
   kind: "ImageStream"
   metadata:
     name: "guacd"
-  spec:
-    dockerImageRepository: ${GUACD_IMAGE_NAME}
-
 - apiVersion: "v1"
   kind: "ImageStream"
   metadata:
-    name: "guacamole"
-  spec:
-    dockerImageRepository: ${GUACAMOLE_IMAGE_NAME}
+    name: "guacamole-client"
+- apiVersion: "v1"
+  kind: "ImageStream"
+  metadata:
+    name: "gcc-builder"
 
 - apiVersion: v1
   kind: Service
   metadata:
-    name: guacd
+    name: "guacd"
   spec:
     ports:
     - port: 4822
@@ -35,19 +34,6 @@ objects:
       targetPort: 4822
     selector:
       name: guacd
-
-- apiVersion: v1
-  kind: Service
-  metadata:
-    name: guacamole
-  spec:
-    ports:
-    - port: 8080
-      protocol: TCP
-      targetPort: 8080
-    selector:
-      name: guacamole
-
 - apiVersion: v1
   kind: Service
   metadata:
@@ -59,21 +45,91 @@ objects:
       targetPort: 3306
     selector:
       name: guacamole-db
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: guacamole-client
+  spec:
+    ports:
+    - port: 8080
+      protocol: TCP
+      targetPort: 8080
+    selector:
+      name: guacamole-client
 
 - apiVersion: v1
   kind: Route
   metadata:
-    name: guacamole
+    name: guacamole-client
+    labels:
+      app: guacamole-client
   spec:
     to:
       kind: Service
-      name: guacamole
+      name: guac-client
+      weight: 100
+
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    annotations:
+      description: Guacamole daemon
+    name: guacd
+  spec:
+    output:
+      to:
+        kind: ImageStreamTag
+        name: guacd:latest
+    postCommit: {}
+    resources: {}
+    runPolicy: Serial
+    source:
+      contextDir: ${GCC_CONTEXT_DIR}
+      git:
+        ref: ${GCC_REPOSITORY_REF}
+        uri: ${GCC_REPOSITORY_URL}
+      type: Git
+    strategy:
+      sourceStrategy:
+        from:
+          kind: ImageStreamTag
+          name: gcc-builder:latest
+      type: Source
+    triggers:
+      type: GitHub
+    - type: ConfigChange
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    annotations:
+      description: GCC-based builder image
+    name: gcc-builder
+  spec:
+    output:
+      to:
+        kind: ImageStreamTag
+        name: gcc-builder:latest
+    postCommit: {}
+    resources: {}
+    runPolicy: Serial
+    source:
+      contextDir: guacamole-server
+      git:
+        ref: master
+        jri: https://github.com/bagnaram/guac-ocp.git
+      type: Git
+    strategy:
+      dockerStrategy:
+        dockerFilePath: Dockerfile.rhel7
+      type: Docker
+    triggers:
+    - type: ConfigChange
 
 - apiVersion: v1
   kind: DeploymentConfig
   metadata:
     annotations:
-      description: Defines how to deploy the application server
+      description: Guacamole daemon
     name: guacd
   spec:
     replicas: 1
@@ -88,10 +144,16 @@ objects:
         name: guacd
       spec:
         containers:
-        - name: guacd
+        - env:
+          - name: APP_CMD
+            value: ${APP_CMD}
+          - name: APP_ARGS
+            value: ${APP_ARGS}
+          name: guacd
           image: guacd:latest
           ports:
           - containerPort: 4822
+            protocol: TCP
     triggers:
     - type: ConfigChange
     - imageChangeParams:
@@ -102,131 +164,127 @@ objects:
           kind: ImageStreamTag
           name: guacd:latest
       type: ImageChange
-
 - apiVersion: v1
   kind: DeploymentConfig
   metadata:
     annotations:
-      description: Defines how to deploy the application server
-    name: guacamole
-  spec:
-    replicas: 1
-    selector:
-      name: guacamole
-    strategy:
-      type: Rolling
-    template:
-      metadata:
-        labels:
-          name: guacamole
-        name: guacamole
-      spec:
-        containers:
-        - image: guacamole:latest
-          name: guacamole
-          ports:
-          - containerPort: 8080
-          env:
-          - name: MYSQL_USER
-            value: ${MYSQL_USER}
-          - name: MYSQL_PASSWORD
-            value: ${MYSQL_PASSWORD}
-          - name: MYSQL_DATABASE
-            value: ${MYSQL_DATABASE}
-          - name: MYSQL_HOSTNAME
-            value: ${MYSQL_DATABASE}
-          - name: MYSQL_PORT
-            value: 3306
-          - name: GUACD_HOSTNAME
-            value: guacd
-          - name: GUACD_PORT
-            value: 4822
-
-          - name: MYSQL_NAME
-            value: mysqlhasafirstnameitsoscar
-    triggers:
-    - type: ConfigChange
-    - imageChangeParams:
-        automatic: true
-        containerNames:
-        - guacamole
-        from:
-          kind: ImageStreamTag
-          name: guacamole:latest
-      type: ImageChange
-
-- apiVersion: v1
-  kind: DeploymentConfig
-  metadata:
-    name: "guacamole-db"
-    labels:
-      app: guacamole-db
+      description: Guacamole database
+    name: guacamole-db
   spec:
     replicas: 1
     selector:
       name: guacamole-db
     strategy:
-      resources: {}
-      recreateParams:
-        timeoutSeconds: 600
-      type: Recreate
+      type: Rolling
     template:
       metadata:
-        creationTimestamp: null
         labels:
           name: guacamole-db
+        name: guacamole-db
       spec:
-        volumes:
-          - name: container-scripts
-            persistentVolumeClaim:
-              claimName: container-scripts
-          - emptyDir: {}
-            name: guacamole-db-data
         containers:
         - env:
           - name: STARTUP_SQL
-            value: 001-create-schema.sql 002-create-admin-user.sql
+            value: 001-create-schema.sql 002-create-admin-user.sql 003-create-connection.sql
           - name: MYSQL_USER
-            value: ${MYSQL_USER}
+            value: ${GUACAMOLE_DB_USER}
           - name: MYSQL_PASSWORD
-            value: ${MYSQL_PASSWORD}
-          - name: ${MYSQL_DATABASE}
-            value: ${MYSQL_DATABASE}
+            value: ${GUACAMOLE_DB_PASSWORD}
+          - name: MYSQL_DATABASE
+            value: ${GUACAMOLE_DB}
           - name: MYSQL_ROOT_PASSWORD
-            value: ${MYSQL_PASSWORD}
-          image: registry.access.redhat.com/rhscl/mariadb-101-rhel7@sha256:86ee10d39753b2d54503b6570a4511fbe5581b87be7db77b8f9517abbab355fb
+            value: ${GUACAMOLE_DB_PASSWORD}
+          name: guacd
+          image: ' '
           imagePullPolicy: IfNotPresent
-          name: mariadb-101-rhel7
-          ports:
-          - containerPort: 3306
-            protocol: TCP
           livenessProbe:
-            failureThreshold: 3
+            failureThreashold: 3
             initialDelaySeconds: 30
-            periodSeconds: 10
-            successThreshold: 1
+            periodSamples: 10
+            successThreashold: 1
             tcpSocket:
               port: 3306
             timeoutSeconds: 1
+          name: guacamole-db
+          ports:
+          - containerPort: 3306
+            protocol: TCP
           readinessProbe:
             exec:
               command:
               - /bin/sh
               - -i
               - -c
-              - MYSQL_PWD="$MYSQL_PASSWORD" mysql -h 127.0.0.1 -u $MYSQL_USER -D $MYSQL_DATABASE
-                -e 'SELECT 1'
-            failureThreshold: 3
+              - MYSQL_PWD="$MYSQL_PASSWORD" mysql -h 127.0.0.1 -u $MYSQL_USER -D $MYSQL_DATABASE -e 'SELECT 1'
+            failureThreashold: 3
             initialDelaySeconds: 5
-            periodSeconds: 10
-            successThreshold: 1
+            periodSamples: 10
+            successThreashold: 1
             timeoutSeconds: 1
           resources: {}
+          terminationMessagePath: /dev/termination-log
           volumeMounts:
-          - name: container-scripts
-            mountPath: /usr/share/container-scripts/mysql/
-          - name: guacamole-db-data
-            mountPath: /var/lib/mysql/data
+          - mountPath: /var/lib/mysql/data
+            name: mysql-db-data
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - EmptyDir: {}
+          name: guacamole-db-data
+    test: false
+    triggers:
+    - type: ConfigChange
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+        - guacamole-db
+        from:
+          kind: ImageStreamTag
+          name: guacamole-db:latest
+      type: ImageChange
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    annotations:
+      description: Guacamole client
+    name: guacamole-client
+  spec:
+    replicas: 1
+    selector:
+      name: guacamole-client
+    strategy:
+      type: Rolling
+    template:
+      metadata:
+        labels:
+          name: guacamole-client
+        name: guacamole-client
+      spec:
+        containers:
+        - command:
+          - /home/jboss/source/guacamole-docker/bin/start.sh
+          env:
+          - name: GUACD_HOSTNAME
+            value: guacd
+          - name: GUACDL_PORT
+            value: "4822"
+          - name: MYSQL_PASSWORD
+            value: ${GUACAMOLE_DB_PASSWORD}
+          - name: MYSQL_DATABASE
+            value: ${GUACAMOLE_DB}
+          - name: MYSQL_USER
+            value: ${GUACAMOLE_DB_USER}
+          - name: MYSQL_HOSTNAME
+            value: guacamole-db
+          - name: MYSQL_PORT
+            value: "3306"
+          image: jboss-webserver-tomcat8-openshift:latest
+          ports:
+          - containerPort: 8080
+            protocol: TCP
+          resources: {}
           terminationMessagePath: /dev/termination-log
         dnsPolicy: ClusterFirst
         restartPolicy: Always
@@ -238,38 +296,197 @@ objects:
     - imageChangeParams:
         automatic: true
         containerNames:
-        - guacamole-db
+        - guacamole-client
         from:
           kind: ImageStreamTag
-          namespace: openshift
-          name: mariadb:10.1
+          name: guacamole-client:latest
       type: ImageChange
 
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    annotations:
+      description: Guacamole database
+    name: guacamole-db
+  spec:
+    output:
+      to:
+        kind: ImageStreamTag
+        name: guacamole-db:latest
+    postCommit: {}
+    resources: {}
+    runPolicy: {}
+    source:
+      contextDir: mariadb-container
+      git:
+        ref: master
+        uri: https://github.com/bagnaram/guac-ocp.git
+      type: Git
+    strategy:
+      dockerStrategy:
+        dockerFilePath: Dockerfile.rhel7
+      type: Docker
+    triggers:
+    - type: ConfigChange
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    annotations:
+      description: Guacamole client
+    name: guacamole-client
+  spec:
+    output:
+      to:
+        kind: ImageStreamTag
+        name: guacamole-client:latest
+    postCommit: {}
+    resources: {}
+    runPolicy: {}
+    source:
+      contextDir: mariadb-container
+      git:
+        ref: ${GUACAMOLE_CLIENT_REF}
+        uri: ${GUACAMOLE_CLIENT_REPOSITORY_URL}
+      type: Git
+    strategy:
+      sourceStrategy:
+        env:
+        - name: MAVEN_MIRROR_URL
+          value: http://maven-repo
+        - name: ARTIFACT_DIR
+          value: guacamole/target
+      type: Source
+    triggers:
+    - type: ConfigChange
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    annotations:
+      description: VNC server
+    name: vnc
+  spec:
+    output:
+      to:
+        kind: ImageStreamTag
+        name: vnc:latest
+    postCommit: {}
+    resources: {}
+    runPolicy: {}
+    source:
+      contextDir: ${VNC_CONTEXT_DIR}
+      git:
+        ref: ${VNC_REF}
+        uri: ${VNC_URL}
+      type: Git
+    strategy:
+      dockerStrategy:
+        dockerfilePath: Dockerfile.rhel7
+      type: Docker
+    triggers:
+    - type: ConfigChange
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    annotations:
+      description: VNC server with Mozilla
+    name: vnc-firefox
+  spec:
+    output:
+      to:
+        kind: ImageStreamTag
+        name: vnc-firefox:latest
+    postCommit: {}
+    resources: {}
+    runPolicy: {}
+    source:
+      contextDir: ${VNC_FIREFOX_CONTEXT_DIR}
+      git:
+        ref: ${VNC_FIREFOX_REF}
+        uri: ${VNC_FIREFOX_URL}
+      type: Git
+    strategy:
+      dockerStrategy:
+        dockerfilePath: Dockerfile
+        from:
+          kind: ImageStreamTag
+          name: vnc:latest
+      type: Docker
+    triggers:
+    - type: ConfigChange
+    - imageChange:
+        from:
+          kind: ImageStreamTag
+          name: vnc:latest
+      type: imageChange
 
 parameters:
-- description: Guacd Image
-  name: GUACD_IMAGE_NAME
-  value: docker.io/glyptodon/guacd
+- description: A name for your application
+  displayName: Application Name
+  name: APP_NAME
+  value: guacamole
   required: true
-- description: Guacamole Image
-  name: GUACAMOLE_IMAGE_NAME
-  value: docker.io/glyptodon/guacamole
+- description: The git reporisory containiang guacamole-client
+  displayName: guacamole-client git repo
+  name: GUACAMOLE_CLIENT_REPOSITORY_URL
+  value: 
   required: true
-- description: A secret string used to configure the GitHub webhook.
-  displayName: GitHub Webhook Secret
-  from: '[a-zA-Z0-9]{40}'
-  generate: expression
-  name: GITHUB_WEBHOOK_SECRET
-
-- description: The username for the MySQL user
-  name: MYSQL_USER
+- description: Set this to a branch name, tag or other ref in your repository if you are not using the default branch
+  displayName: gcc Source Branch
+  name: GUACAMOLE_CLIENT_REF
+  value: master
+  required: true
+- description: The git repository containing the gcc builder
+  displayName: gcc git Repository
+  name: GCC_REPOSITORY_URL
+  value: 
+  required: true
+- description: Set this to a branch name, tag or other ref in your repository if you are not using the default branch
+  displayName: gcc git Branch
+  name: GCC_REPOSITORY_REF
+  value: master
+  required: true
+- description: Set this to the subdirectory containing the Dockerfile if it is not in the main directory.
+  displayName: gcc Source Context Directory
+  name: GCC_CONTEXT_DIR
+  value: /
+  required: true
+- description: Username for guacamole database
+  displayName: guacamole-db username
+  name: GUACAMOLE_DB_USER
   value: guacamole_user
   required: true
-- description: The password for the MySQL password
-  name: MYSQL_PASSWORD
-  value: guacamole_pass
+- description: Password for guacamole database
+  displayName: guacamole-db password
+  name: GUACAMOLE_DB_PASSWORD
   required: true
-- description: The name of the MySQL database
-  name: MYSQL_DATABASE
+- description: Password for logging into guacamole web
+  displayName: guacamole login password
+  name: GUAC_LOGIN_PASSWORD
+  required: true
+- description: Database name for guacamole database
+  displayName: guacamole-db database
+  name: GUACAMOLE_DB
   value: guacamole_db
-required: true
+  required: true
+  
+- description: The repository reference for the VNC Dockerfile
+  displayName: VNC Dockerfile Repository Branch
+  name: VNC_REPOSITORY_REF
+  value: master
+  required: true
+- description: Set this to the subdirectory containing the Dockerfile if it is not in the main directory.
+  displayName: VNC Dockerfile Context Directory
+  name: VNC_CONTEXT_DIR
+  value: vnc
+  required: true
+- description: The repository reference for the Firefox VNC Dockerfile
+  displayName: VNC Firefox Dockerfile Repository Branch
+  name: VNC_FIREFOX_REPOSITORY_REF
+  value: master
+  required: true
+- description: Set this to the subdirectory containing the Dockerfile if it is not in the main directory.
+  displayName: VNC Firefox Dockerfile Context Directory
+  name: VNC_FIREFOX_CONTEXT_DIR
+  value: vnc-firefox
+  required: true
+
