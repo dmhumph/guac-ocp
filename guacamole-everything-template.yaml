@@ -428,7 +428,7 @@ parameters:
 - description: The git reporisory containiang guacamole-client
   displayName: guacamole-client git repo
   name: GUACAMOLE_CLIENT_REPOSITORY_URL
-  value: 
+  value: https://github.com/bagnaram/incubator-guacamole-client
   required: true
 - description: Set this to a branch name, tag or other ref in your repository if you are not using the default branch
   displayName: gcc Source Branch
@@ -438,7 +438,7 @@ parameters:
 - description: The git repository containing the gcc builder
   displayName: gcc git Repository
   name: GCC_REPOSITORY_URL
-  value: 
+  value: https://github.com/bagnaram/guac-ocp
   required: true
 - description: Set this to a branch name, tag or other ref in your repository if you are not using the default branch
   displayName: gcc git Branch
@@ -469,6 +469,11 @@ parameters:
   value: guacamole_db
   required: true
   
+- description: The git repository for the Firefox VNC Dockerfile
+  displayName: VNC Firefox Dockerfile Repository 
+  name: VNC_URL
+  value: https://github.com/bagnaram/openshift-kiosk
+  required: true
 - description: The repository reference for the VNC Dockerfile
   displayName: VNC Dockerfile Repository Branch
   name: VNC_REPOSITORY_REF
@@ -478,6 +483,11 @@ parameters:
   displayName: VNC Dockerfile Context Directory
   name: VNC_CONTEXT_DIR
   value: vnc
+  required: true
+- description: The git repository for the Firefox VNC Dockerfile
+  displayName: VNC Firefox Dockerfile Repository 
+  name: VNC_FIREFOX_URL
+  value: https://github.com/bagnaram/openshift-kiosk
   required: true
 - description: The repository reference for the Firefox VNC Dockerfile
   displayName: VNC Firefox Dockerfile Repository Branch
