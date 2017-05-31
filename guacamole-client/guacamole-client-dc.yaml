@@ -67,6 +67,6 @@ spec:
       - guacamole-db
       from:
         kind: ImageStreamTag
-        namespace: openshift
+        namespace: testdesktop
         name: jboss-webserver30-tomcat8-openshift:latest
     type: ImageChange
