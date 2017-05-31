@@ -96,7 +96,7 @@ objects:
           name: gcc-builder:latest
       type: Source
     triggers:
-      type: GitHub
+    - type: GitHub
     - type: ConfigChange
 - apiVersion: v1
   kind: BuildConfig
