@@ -8,7 +8,7 @@ metadata:
     iconClass: icon-shadowman
     tags: gcc
   name: gcc
-  namespace: guacamole-test
+  namespace: testdesktop
 objects:
 - apiVersion: "v1"
   kind: "ImageStream"
